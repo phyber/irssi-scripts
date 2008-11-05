@@ -57,10 +57,17 @@ sub save_keys {
 sub msg_decrypt {
 	my ($tag, $chan, $text, $key) = @_;
 
-	if (defined $key and index($text, '+OK') == 0) {
+	if (defined $key and index($text, '+OK ') == 0) {
 		$blowfish->set_key($key);
 		my $text = ( split(/\+OK /, $text) )[1];
-		return $blowfish->decrypt($text);
+		# Check that text actually exists, it's possible that someone might just send '+OK ' and no text.
+		if ($text) {
+			return $blowfish->decrypt($text);
+		}
+		else {
+			# If there was no text, return an empty line.
+			return "";
+		}
 	}
 	else {
 		# Check if we want to mark unencrypted text or not.
