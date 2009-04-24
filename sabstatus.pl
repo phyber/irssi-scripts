@@ -45,11 +45,12 @@ sub pipe_input {
 }
 
 sub show_status {
+	my $witem = Irssi::active_win();
 	if ($status_overall) {
-		Irssi::print "OVERALL..: $status_overall";
+		$witem->print "OVERALL..: $status_overall";
 	}
 	if ($status_downloads) {
-		Irssi::print "DOWNLOADS..: $status_downloads";
+		$witem->print "DOWNLOADS..: $status_downloads";
 	}
 }
 
