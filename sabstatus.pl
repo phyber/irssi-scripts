@@ -85,60 +85,64 @@ sub get_status {
 		$pipe_tag = Irssi::input_add(fileno($readh), INPUT_READ, \&pipe_input, $readh);
 		return;
 	}
-	# OK, go and get it
-	my $response = $ua->get($saburl);
-	if ($response->is_success) {
-		my $text = "";
-		my $overall_format_str = Irssi::settings_get_str('sabstatus_overall_format');
-		my $xml = XMLin($response->content);
-		# Overall status
-		my $timeleft	= $xml->{timeleft};
-		my $speed	= $xml->{kbpersec};
-		my $numjobs	= $xml->{noofslots};
-		my $dlspace	= sprintf "%.2fGB", $xml->{diskspace1};
-		my $compspace	= sprintf "%.2fGB", $xml->{diskspace2};
-		my $paused	= $xml->{paused} eq "True" ? "paused" : "";
-		my $mbdown	= $xml->{mb};
-		my $mbleft	= $xml->{mbleft};
-		# Replace bits of the format string with info we got above.
-		$overall_format_str =~ s/%JOBS%/$numjobs/g;
-		$overall_format_str =~ s/%KBPERSEC%/$speed/g;
-		$overall_format_str =~ s/%PAUSED%/$paused/g;
-		$overall_format_str =~ s/%MBLEFT%/$mbleft/g;
-		$overall_format_str =~ s/%MB%/$mbdown/g;
-		$overall_format_str =~ s/%TIMELEFT%/$timeleft/g;
-		$overall_format_str =~ s/%DISKSPACE1%/$dlspace/g;
-		$overall_format_str =~ s/%DISKSPACE2%/$compspace/g;
-
-		#$text = sprintf "%d jobs in %s queue with %dMB and %ss left at %sKB/s.  Diskspace: %s/%s.\n", $numjobs, $paused, $mbleft, $timeleft, $speed, $dlspace, $compspace;
-		$text = $overall_format_str ."\n";
-		# Specific jobs
-		foreach my $jobid (keys %{$xml->{jobs}->{job}}) {
-			my $job = $xml->{jobs}->{job}->{$jobid};
-			next if !$job;
-			my $downloads_format_str = Irssi::settings_get_str('sabstatus_downloads_format');
-			my $filename = $job->{filename};
-			my $mb = $job->{mb};
-			my $mbleft = $job->{mbleft};
-			my $msgid = $job->{msgid};
-			# String replacements
-			$downloads_format_str =~ s/%JOBID%/$jobid/g;
-			$downloads_format_str =~ s/%FILENAME%/$filename/g;
-			$downloads_format_str =~ s/%MBLEFT%/$mbleft/g;
-			$downloads_format_str =~ s/%MB%/$mb/g;
-			$downloads_format_str =~ s/%MSGID%/$msgid/g;
-			
-			#Irssi::print "GOT: $jobid || $filename || $mb || $mbleft || $msgid";
-			#$text .= "$jobid || $filename || $mb || $mbleft || $msgid //// ";
-			$text .= $downloads_format_str . " ";
-		}
-		# Write the text out and exit the fork()
-		print {$writeh} $text;
-		close $writeh;
-		POSIX::_exit(1);
-	}
 	else {
-		Irssi::print "Couldn't get SABnzbd status: ".$response->status_line."\n";
+		# OK, go and get it
+		my $response = $ua->get($saburl);
+		if ($response->is_success) {
+			my $text = "";
+			my $overall_format_str = Irssi::settings_get_str('sabstatus_overall_format');
+			my $xml = XMLin($response->content);
+			# Overall status
+			my $timeleft	= $xml->{timeleft};
+			my $speed	= $xml->{kbpersec};
+			my $numjobs	= $xml->{noofslots};
+			my $dlspace	= sprintf "%.2fGB", $xml->{diskspace1};
+			my $compspace	= sprintf "%.2fGB", $xml->{diskspace2};
+			my $paused	= $xml->{paused} eq "True" ? "paused" : "";
+			my $mbdown	= $xml->{mb};
+			my $mbleft	= $xml->{mbleft};
+			# Replace bits of the format string with info we got above.
+			$overall_format_str =~ s/%JOBS%/$numjobs/g;
+			$overall_format_str =~ s/%KBPERSEC%/$speed/g;
+			$overall_format_str =~ s/%PAUSED%/$paused/g;
+			$overall_format_str =~ s/%MBLEFT%/$mbleft/g;
+			$overall_format_str =~ s/%MB%/$mbdown/g;
+			$overall_format_str =~ s/%TIMELEFT%/$timeleft/g;
+			$overall_format_str =~ s/%DISKSPACE1%/$dlspace/g;
+			$overall_format_str =~ s/%DISKSPACE2%/$compspace/g;
+
+			#$text = sprintf "%d jobs in %s queue with %dMB and %ss left at %sKB/s.  Diskspace: %s/%s.\n", $numjobs, $paused, $mbleft, $timeleft, $speed, $dlspace, $compspace;
+			$text = $overall_format_str ."\n";
+			# Specific jobs
+			foreach my $jobid (keys %{$xml->{jobs}->{job}}) {
+				my $job = $xml->{jobs}->{job}->{$jobid};
+				next if !$job;
+				my $downloads_format_str = Irssi::settings_get_str('sabstatus_downloads_format');
+				my $filename = $job->{filename};
+				my $mb = $job->{mb};
+				my $mbleft = $job->{mbleft};
+				my $msgid = $job->{msgid};
+				# String replacements
+				$downloads_format_str =~ s/%JOBID%/$jobid/g;
+				$downloads_format_str =~ s/%FILENAME%/$filename/g;
+				$downloads_format_str =~ s/%MBLEFT%/$mbleft/g;
+				$downloads_format_str =~ s/%MB%/$mb/g;
+				$downloads_format_str =~ s/%MSGID%/$msgid/g;
+			
+				#Irssi::print "GOT: $jobid || $filename || $mb || $mbleft || $msgid";
+				#$text .= "$jobid || $filename || $mb || $mbleft || $msgid //// ";
+				$text .= $downloads_format_str . " ";
+			}
+			# Write the text out and exit the fork()
+			print {$writeh} $text;
+			close $writeh;
+			POSIX::_exit(1);
+		}
+		else {
+			print {$writeh} "Couldn't get SABnzbd status: ".$response->status_line;
+			close $writeh;
+			POSIX::_exit(1);
+		}
 	}
 }
 
