@@ -37,19 +37,19 @@ sub process_own_public {
 	# We only accept one url per input.
 	if (lc($target) eq lc("#laserboy")) {
 		my $url;
-		foreach my $s (split / /, $msg) {
+		# Build an aray from our input msg.
+		my @words = split / /, $msg;
+		my $count = 0;
+		foreach my $s (@words) {
 			if ($s =~ m/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=/) {
-				$url = $s;
-				last;
+				my $title = get_youtube_title($s);
+				my $new_text = "$s ($title)";
+				$words[$count] = $new_text;
 			}
+			$count = $count + 1;
 		}
 
-		if (defined $url) {
-			my $title = get_youtube_title($url);
-			#Irssi::print "$url - $title";
-			my $new_text = "$url - $title";
-			Irssi::signal_continue(($server_rec, $new_text, $target));
-		}
+		Irssi::signal_continue(($server_rec, join(' ', @words), $target));
 	}
 }
 
