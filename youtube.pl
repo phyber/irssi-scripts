@@ -4,8 +4,21 @@ use Irssi;
 use LWP::UserAgent;
 use HTML::TokeParser;
 
+use vars qw($VERSION %IRSSI);
+$VERSION = "1.0";
+%IRSSI = (
+	authors		=> "David O'Rourke",
+	contact		=> "phyber @ #irssi",
+	name		=> "youtube.pl",
+	description	=> "Add the title of a video to any youtube links you paste.",
+	license		=> "GPLv2",
+	changed		=> "2009/11/19",
+);
+
 # Setup a UserAgent
 my $ua = LWP::UserAgent->new;
+
+##
 sub get_youtube_title {
 	my ($url) = @_;
 
@@ -62,7 +75,20 @@ sub process_send_text {
 	}
 }
 
+sub usage {
+	# If we haven't got any channels set, print the usage.
+	if (Irssi::settings_get_str('youtube_channels') eq '') {
+		Irssi::print "youtube.pl v$VERSION";
+		Irssi::print "Add channels to run in with:";
+		Irssi::print "  /set youtube_channels tag:#channel";
+		Irssi::print "The scripts useragent can be set with:";
+		Irssi::print "  /set youtube_useragent SomeAgent/3.5";
+	}
+}
 # Settings
-Irssi::settings_add_str('youtube', 'youtube_useragent', 'Firefox 3.5');
+Irssi::settings_add_str('youtube', 'youtube_useragent', 'Firefox/3.5');
 Irssi::settings_add_str('youtube', 'youtube_channels', '');
 Irssi::signal_add_first('send text', 'process_send_text');
+
+# Show usage, maybe.
+usage();
