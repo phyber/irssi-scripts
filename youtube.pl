@@ -31,28 +31,38 @@ sub get_youtube_title {
 	}
 }
 
-sub process_own_public {
-	my ($server_rec, $msg, $target) = @_;
-	# Now check each word and check if it's a youtube url
-	# We only accept one url per input.
-	if (lc($target) eq lc("#laserboy")) {
-		my $url;
-		# Build an aray from our input msg.
-		my @words = split / /, $msg;
-		my $count = 0;
-		foreach my $s (@words) {
-			if ($s =~ m/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=/) {
-				my $title = get_youtube_title($s);
-				my $new_text = "$s ($title)";
-				$words[$count] = $new_text;
-			}
-			$count = $count + 1;
-		}
+sub process_send_text {
+	my ($msg, $server_rec, $witem) = @_;
 
-		Irssi::signal_continue(($server_rec, join(' ', @words), $target));
+	if ($msg and $witem != 0 and $witem->{type} eq "CHANNEL") {
+		my $tag = $server_rec->{tag};
+		my $channel = $witem->{name};
+		my $valid_chan;
+		# Check if we want to run in this tag and channel
+		foreach my $tc (split / /, Irssi::settings_get_str('youtube_channels')) {
+			my ($t, $c) = split /:/, $tc;
+			if ((lc($t) eq lc($tag)) and (lc($c) eq lc($channel))) {
+				$valid_chan = 1;
+				last;
+			}
+		}
+		if ($valid_chan) {
+			my @words = split / /, $msg;
+			my $count = 0;
+			foreach my $s (@words) {
+				if ($s =~ m/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=/) {
+					my $title = get_youtube_title($s);
+					my $new_text = "$s ($title)";
+					$words[$count] = $new_text;
+				}
+				$count = $count + 1;
+			}
+			Irssi::signal_continue((join(' ', @words), $server_rec, $witem));
+		}
 	}
 }
 
 # Settings
 Irssi::settings_add_str('youtube', 'youtube_useragent', 'Firefox 3.5');
-Irssi::signal_add_first('message own_public', 'process_own_public');
+Irssi::settings_add_str('youtube', 'youtube_channels', '');
+Irssi::signal_add_first('send text', 'process_send_text');
