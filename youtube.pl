@@ -1,3 +1,16 @@
+########
+## youtube.pl
+########
+# Adds the video title to any youtube urls that you paste into a channel.
+########
+# Example:
+# You type:
+#   <You> Hey guys, have you seen this?  http://www.youtube.com/watch?v=8HE9OQ4FnkQ
+# You get in the channel:
+#   <You> Hey guys, have you seen this?  http://www.youtube.com/watch?v=8HE9OQ4FnkQ (Take On Me: Literal Video Version *ORIGINAL*)
+########
+# :)
+########
 use strict;
 use warnings;
 use Irssi;
@@ -15,16 +28,17 @@ $VERSION = "1.0";
 	changed		=> "2009/11/19",
 );
 
-# Setup a UserAgent
-my $ua = LWP::UserAgent->new;
-
 ##
 sub get_youtube_title {
 	my ($url) = @_;
 
+	# Get a user agent
+	my $ua = LWP::UserAgent->new;
 	# Set the UserAgent of the UserAgent
 	my $agent = Irssi::settings_get_str('youtube_useragent');
 	$ua->agent($agent." ");
+
+	# OK, now go and get the page and let the magic happen
 	my $response = $ua->get($url);
 	if ($response->is_success) {
 		my $p = HTML::TokeParser->new(\$response->content);
@@ -65,8 +79,10 @@ sub process_send_text {
 			foreach my $s (@words) {
 				if ($s =~ m/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=/) {
 					my $title = get_youtube_title($s);
-					my $new_text = "$s ($title)";
-					$words[$count] = $new_text;
+					if (defined $title) {
+						my $new_text = "$s ($title)";
+						$words[$count] = $new_text;
+					}
 				}
 				$count = $count + 1;
 			}
