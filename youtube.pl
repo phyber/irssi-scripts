@@ -3,6 +3,10 @@
 ########
 # Adds the video title to any youtube urls that you paste into a channel.
 ########
+# Required Modules:
+#   LWP::UserAgent
+#   HTML::TokeParser
+########
 # Example:
 # You type:
 #   <You> Hey guys, have you seen this?  http://www.youtube.com/watch?v=8HE9OQ4FnkQ
