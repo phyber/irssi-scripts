@@ -22,7 +22,7 @@ use LWP::UserAgent;
 use HTML::TokeParser;
 
 use vars qw($VERSION %IRSSI);
-$VERSION = "1.1";
+$VERSION = "1.2";
 %IRSSI = (
 	authors		=> "David O'Rourke",
 	contact		=> "phyber @ #irssi",
@@ -40,7 +40,10 @@ sub get_youtube_title {
 	my $ua = LWP::UserAgent->new;
 	# Set the UserAgent of the UserAgent
 	my $agent = Irssi::settings_get_str('youtube_useragent');
+	my $timeout = Irssi::settings_get_int('youtube_timeout');
 	$ua->agent($agent." ");
+	$ua->timeout($timeout);
+
 
 	# OK, now go and get the page and let the magic happen
 	my $response = $ua->get($url);
@@ -105,16 +108,27 @@ sub usage {
 	# If we haven't got any channels set, print the usage.
 	if (Irssi::settings_get_str('youtube_channels') eq '') {
 		Irssi::print "youtube.pl v$VERSION";
+		Irssi::print "";
+		Irssi::print "CONFIG EXAMPLES";
+		Irssi::print "";
 		Irssi::print "Add channels to run in with:";
 		Irssi::print "  /set youtube_channels tag:#channel";
+		Irssi::print "";
 		Irssi::print "The scripts useragent can be set with:";
 		Irssi::print "  /set youtube_useragent SomeAgent/3.5";
+		Irssi::print "";
+		Irssi::print "Set the youtube timeout (in seconds) with:";
+		Irssi::print "  /set youtube_timeout 3";
+		Irssi::print "";
+		Irssi::print "Toggle automatically add HD to links with:";
+		Irssi::print "  /toggle youtube_hdlink";
 	}
 }
 # Settings
 Irssi::settings_add_str('youtube', 'youtube_useragent', 'Firefox/3.5');
 Irssi::settings_add_str('youtube', 'youtube_channels', '');
 Irssi::settings_add_bool('youtube', 'youtube_hdlink' => 1);
+Irssi::settings_add_int('youtube', 'youtube_timeout', 3);
 Irssi::signal_add_first('send text', 'process_send_text');
 
 # Show usage, maybe.
@@ -122,6 +136,9 @@ usage();
 
 #####
 # Version History
+#####
+## v1.2
+# Added youtube_timeout setting. Default 3 seconds.
 #####
 ## v1.1
 # Added cchecking for &fmt=18 on URLs.
