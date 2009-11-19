@@ -22,7 +22,7 @@ use LWP::UserAgent;
 use HTML::TokeParser;
 
 use vars qw($VERSION %IRSSI);
-$VERSION = "1.0";
+$VERSION = "1.1";
 %IRSSI = (
 	authors		=> "David O'Rourke",
 	contact		=> "phyber @ #irssi",
@@ -84,6 +84,12 @@ sub process_send_text {
 				if ($s =~ m/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=/) {
 					my $title = get_youtube_title($s);
 					if (defined $title) {
+						# If we got the title, also check if we wanted to make it a HD link
+						if (Irssi::settings_get_bool('youtube_hdlink')) {
+							if (!($s =~ m/fmt=18/)) {
+								$s = $s."&fmt=18";
+							}
+						}
 						my $new_text = "$s ($title)";
 						$words[$count] = $new_text;
 					}
@@ -108,7 +114,16 @@ sub usage {
 # Settings
 Irssi::settings_add_str('youtube', 'youtube_useragent', 'Firefox/3.5');
 Irssi::settings_add_str('youtube', 'youtube_channels', '');
+Irssi::settings_add_bool('youtube', 'youtube_hdlink' => 1);
 Irssi::signal_add_first('send text', 'process_send_text');
 
 # Show usage, maybe.
 usage();
+
+#####
+# Version History
+#####
+## v1.1
+# Added cchecking for &fmt=18 on URLs.
+## v1.0
+# Initial Release
