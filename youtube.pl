@@ -68,16 +68,25 @@ sub get_youtube_title {
 sub process_send_text {
 	my ($msg, $server_rec, $witem) = @_;
 
-	if ($msg and $witem != 0 and $witem->{type} eq "CHANNEL") {
+	if ($msg and $witem != 0 and ($witem->{type} eq "CHANNEL" or $witem->{type} eq "QUERY")) {
 		my $tag = $server_rec->{tag};
 		my $channel = $witem->{name};
 		my $valid_chan;
 		# Check if we want to run in this tag and channel
 		foreach my $tc (split / /, Irssi::settings_get_str('youtube_channels')) {
 			my ($t, $c) = split /:/, $tc;
-			if ((lc($t) eq lc($tag)) and (lc($c) eq lc($channel))) {
-				$valid_chan = 1;
-				last;
+			## Now we check if $c is defined.  if it's not, we should have a nick or channel in $t
+			if (!defined $c) {
+				if (lc($t) eq lc($channel)) {
+					$valid_chan = 1;
+					last;
+				}
+			}
+			else {
+				if ((lc($t) eq lc($tag)) and (lc($c) eq lc($channel))) {
+					$valid_chan = 1;
+					last;
+				}
 			}
 		}
 		if ($valid_chan) {
