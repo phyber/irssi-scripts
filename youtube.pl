@@ -67,25 +67,32 @@ sub get_youtube_title {
 
 sub process_send_text {
 	my ($msg, $server_rec, $witem) = @_;
+	my $wtype = $witem->{type};
 
-	if ($msg and $witem != 0 and ($witem->{type} eq "CHANNEL" or $witem->{type} eq "QUERY")) {
+	if ($msg and $witem != 0 and ($wtype eq "CHANNEL" or $wtype eq "QUERY")) {
 		my $tag = $server_rec->{tag};
 		my $channel = $witem->{name};
 		my $valid_chan;
+		# First a quick check to see if this is a query and if we are enabled for ALL queries
+		if ($wtype eq "QUERY" and Irssi::settings_get_bool('youtube_queries')) {
+			$valid_chan = 1;
+		}
 		# Check if we want to run in this tag and channel
-		foreach my $tc (split / /, Irssi::settings_get_str('youtube_channels')) {
-			my ($t, $c) = split /:/, $tc;
-			## Now we check if $c is defined.  if it's not, we should have a nick or channel in $t
-			if (!defined $c) {
-				if (lc($t) eq lc($channel)) {
-					$valid_chan = 1;
-					last;
+		if (!defined $valid_chan) {
+			foreach my $tc (split / /, Irssi::settings_get_str('youtube_channels')) {
+				my ($t, $c) = split /:/, $tc;
+				## Now we check if $c is defined.  if it's not, we should have a nick or channel in $t
+				if (!defined $c) {
+					if (lc($t) eq lc($channel)) {
+						$valid_chan = 1;
+						last;
+					}
 				}
-			}
-			else {
-				if ((lc($t) eq lc($tag)) and (lc($c) eq lc($channel))) {
-					$valid_chan = 1;
-					last;
+				else {
+					if ((lc($t) eq lc($tag)) and (lc($c) eq lc($channel))) {
+						$valid_chan = 1;
+						last;
+					}
 				}
 			}
 		}
@@ -137,6 +144,7 @@ sub usage {
 Irssi::settings_add_str('youtube', 'youtube_useragent', 'Firefox/3.5');
 Irssi::settings_add_str('youtube', 'youtube_channels', '');
 Irssi::settings_add_bool('youtube', 'youtube_hdlink' => 1);
+Irssi::settings_add_bool('youtube', 'youtube_queries' => 1);
 Irssi::settings_add_int('youtube', 'youtube_timeout', 3);
 Irssi::signal_add_first('send text', 'process_send_text');
 
@@ -146,6 +154,9 @@ usage();
 #####
 # Version History
 #####
+## v1.3: 09/12/2009
+# Added youtube_queries setting. Default ON.
+# Allowed youtube_channels to not need a server tag.
 ## v1.2
 # Added youtube_timeout setting. Default 3 seconds.
 #####
