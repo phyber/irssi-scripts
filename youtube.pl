@@ -103,6 +103,11 @@ sub process_send_text {
 				if ($s =~ m/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=/) {
 					my $title = get_youtube_title($s);
 					if (defined $title) {
+						# Check if we wanted to use a shortlink.
+						if (Irssi::settings_get_bool('youtube_shortlink')) {
+							my ($http, $secure, $www, $vid) = $s =~ m/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=(.*)/;
+							$s = "http://youtu.be/".$vid;
+						}
 						# If we got the title, also check if we wanted to make it a HD link
 						if (Irssi::settings_get_bool('youtube_hdlink')) {
 							if (!($s =~ m/fmt=18/)) {
@@ -136,6 +141,9 @@ sub usage {
 		Irssi::print "Set the youtube timeout (in seconds) with:";
 		Irssi::print "  /set youtube_timeout 3";
 		Irssi::print "";
+		Irssi::print "Toggle youtu.be shortlinks with:";
+		Irssi::print "  /toggle youtube_shortlink";
+		Irssi::print "";
 		Irssi::print "Toggle automatically add HD to links with:";
 		Irssi::print "  /toggle youtube_hdlink";
 	}
@@ -145,6 +153,7 @@ Irssi::settings_add_str('youtube', 'youtube_useragent', 'Firefox/3.5');
 Irssi::settings_add_str('youtube', 'youtube_channels', '');
 Irssi::settings_add_bool('youtube', 'youtube_hdlink' => 1);
 Irssi::settings_add_bool('youtube', 'youtube_queries' => 1);
+Irssi::settings_add_bool('youtube', 'youtube_shortlink' => 1);
 Irssi::settings_add_int('youtube', 'youtube_timeout', 3);
 Irssi::signal_add_first('send text', 'process_send_text');
 
@@ -154,6 +163,8 @@ usage();
 #####
 # Version History
 #####
+## v1.4: 15/06/2011
+# Added youtube_shortlink setting. Default ON.
 ## v1.3: 09/12/2009
 # Added youtube_queries setting. Default ON.
 # Allowed youtube_channels to not need a server tag.
