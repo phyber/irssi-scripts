@@ -105,7 +105,7 @@ sub process_send_text {
 					if (defined $title) {
 						# Check if we wanted to use a shortlink.
 						if (Irssi::settings_get_bool('youtube_shortlink')) {
-							my ($http, $secure, $www, $vid) = $s =~ m/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=(.*)/;
+							my ($http, $secure, $www, $vid) = $s =~ m/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=(.*)&.*/;
 							$s = "http://youtu.be/".$vid;
 						}
 						# If we got the title, also check if we wanted to make it a HD link
@@ -163,6 +163,8 @@ usage();
 #####
 # Version History
 #####
+## v1.5: 17/06/2011
+# youtu.be doesn't pass along extra args in the URL. Strip them.
 ## v1.4: 15/06/2011
 # Added youtube_shortlink setting. Default ON.
 ## v1.3: 09/12/2009
