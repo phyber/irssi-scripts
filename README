@@ -1,0 +1,16 @@
+ - bantime.pl
+   - Display times when people were banned in a human readable manner.
+ - bork.pl
+   - Replace characters in text with other characters.
+ - dccxkb.pl
+   - Kickbans people sending DCCs to an entire channel.
+ - fish.pl
+   - FiSH encryption in perl.
+ - quakequit.pl
+   - Hides quakenet "join -> mode -> register quit -> join -> mode" spam.
+ - sabstatus.pl
+   - Very incomplete quit for showing sabnzbd status as a status bar item.
+ - whitelist.pl
+   - Whitelist specific nicks/hosts/networks and ignore (and optionally log) messages from everyone else.
+ - youtube.pl
+   - Gets titles for youtube videos and adds them to your text when you paste a youtube link to a channel.
