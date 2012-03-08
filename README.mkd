@@ -1,3 +1,9 @@
+Irssi Scripts
+=============
+A few random irssi scripts I've written over the years.
+If you're running them and they break, you get to keep both halves.
+Some scripts may be incomplete.
+
  - bantime.pl
    - Display times when people were banned in a human readable manner.
  - bork.pl
