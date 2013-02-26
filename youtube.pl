@@ -22,7 +22,7 @@ use LWP::UserAgent;
 use HTML::TokeParser;
 
 use vars qw($VERSION %IRSSI);
-$VERSION = "1.2";
+$VERSION = "1.6";
 %IRSSI = (
 	authors		=> "David O'Rourke",
 	contact		=> "phyber @ #irssi",
@@ -69,7 +69,7 @@ sub process_send_text {
 	my ($msg, $server_rec, $witem) = @_;
 	my $wtype = $witem->{type};
 
-	if ($msg and $witem != 0 and ($wtype eq "CHANNEL" or $wtype eq "QUERY")) {
+	if ($msg and $witem != 0 and (defined $wtype and ($wtype eq "CHANNEL" or $wtype eq "QUERY"))) {
 		my $tag = $server_rec->{tag};
 		my $channel = $witem->{name};
 		my $valid_chan;
@@ -163,6 +163,9 @@ usage();
 #####
 # Version History
 #####
+## v1.6: 26/02/2013
+# Fix issue with $wtype being undefined in process_send_text()
+# when in the status window.
 ## v1.5: 17/06/2011
 # youtu.be doesn't pass along extra args in the URL. Strip them.
 ## v1.4: 15/06/2011
