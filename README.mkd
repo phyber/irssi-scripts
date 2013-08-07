@@ -14,8 +14,8 @@ Some scripts may be incomplete.
    - FiSH encryption in perl.
  - quakequit.pl
    - Hides quakenet "join -> mode -> register quit -> join -> mode" spam.
- - sabstatus.pl
-   - Very incomplete quit for showing sabnzbd status as a status bar item.
+ - topicwrap.pl
+   - Not my script, but the source seems to have disappeared and it's not on http://scripts.irssi.org/
  - whitelist.pl
    - Whitelist specific nicks/hosts/networks and ignore (and optionally log) messages from everyone else.
  - youtube.pl
