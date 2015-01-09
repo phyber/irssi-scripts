@@ -15,8 +15,11 @@ Some scripts may be incomplete.
  - quakequit.pl
    - Hides quakenet "join -> mode -> register quit -> join -> mode" spam.
  - topicwrap.pl
-   - Not my script, but the source seems to have disappeared and it's not on http://scripts.irssi.org/
+   - Not my script, but the source seems to have disappeared and it's not on
+     http://scripts.irssi.org/
  - whitelist.pl
-   - Whitelist specific nicks/hosts/networks and ignore (and optionally log) messages from everyone else.
+   - Whitelist specific nicks/hosts/networks and ignore (and optionally log)
+     messages from everyone else.
  - youtube.pl
-   - Gets titles for youtube videos and adds them to your text when you paste a youtube link to a channel.
+   - Gets titles for youtube videos and adds them to your text when you paste
+     a youtube link to a channel.
