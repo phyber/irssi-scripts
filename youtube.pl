@@ -22,7 +22,7 @@ use LWP::UserAgent;
 use HTML::TokeParser;
 
 use vars qw($VERSION %IRSSI);
-$VERSION = "1.6";
+$VERSION = "1.2";
 %IRSSI = (
 	authors		=> "David O'Rourke",
 	contact		=> "phyber @ #irssi",
@@ -32,97 +32,153 @@ $VERSION = "1.6";
 	changed		=> "2009/11/19",
 );
 
+use constant {
+	INVALID		=> 0,
+	VALID_CHANNEL	=> 1,
+	VALID_QUERY	=> 2,
+
+	YOUTUBE_PATTERN		=> qr/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=(.*)$/,
+	YOUTUBE_SHORTLINK	=> "http://youtu.be/",
+};
+
 ##
 sub get_youtube_title {
 	my ($url) = @_;
 
 	# Get a user agent
 	my $ua = LWP::UserAgent->new;
+
 	# Set the UserAgent of the UserAgent
 	my $agent = Irssi::settings_get_str('youtube_useragent');
 	my $timeout = Irssi::settings_get_int('youtube_timeout');
 	$ua->agent($agent." ");
 	$ua->timeout($timeout);
 
-
 	# OK, now go and get the page and let the magic happen
 	my $response = $ua->get($url);
-	if ($response->is_success) {
-		my $p = HTML::TokeParser->new(\$response->content);
-		if ($p->get_tag("title")) {
-			my $title = $p->get_trimmed_text;
-			$title =~ s/YouTube\s- //;
-			return $title;
-		}
-		else {
-			Irssi::print "Failed to get title for YouTube URL: $url";
-			return undef;
-		}
-	}
-	else {
+	if (!$response->is_success) {
 		Irssi::print "Failed to fetch page for YouTube URL: $url";
 		return undef;
 	}
+
+	my $p = HTML::TokeParser->new(\$response->content);
+	if (!$p->get_tag("title")) {
+		Irssi::print "Failed to get title for YouTube URL: $url";
+		return undef;
+	}
+
+	# Strip youtube prefix/suffix.
+	my $title = $p->get_trimmed_text;
+	$title =~ s/YouTube\s- //;
+	$title =~ s/\s-\sYouTube//;
+	return $title;
+}
+
+sub is_valid_source {
+	my ($witem) = @_;
+
+	if (!defined $witem) {
+		return INVALID;
+	}
+
+	my $wtype = $witem->{type};
+
+	return ($wtype eq "CHANNEL" or $wtype eq "QUERY");
+}
+
+sub is_valid_chan {
+	my ($wtype, $channel, $tag) = @_;
+
+	# First a quick check to see if this is a query and if we are enabled
+	# for ALL queries
+	if ($wtype eq "QUERY" and Irssi::settings_get_bool('youtube_queries')) {
+		return VALID_QUERY;
+	}
+
+	# Otherwise, check to see if we're on a valid channel.
+	foreach my $tc (split / /, Irssi::settings_get_str('youtube_channels')) {
+		my ($t, $c) = split /:/, $tc;
+
+		# We should always have at least $t, so lc it here.
+		$t = lc $t;
+
+		# Now we check if $c is defined.  if it's not, we should have
+		# a nick or channel in $t
+		if (!defined $c) {
+			if ($t eq $channel) {
+				return VALID_CHANNEL;
+			}
+		}
+		else {
+			# lc $c here since it could be undefined above.
+			$c = lc $c;
+			if (($t eq $tag) and ($c eq $channel)) {
+				return VALID_CHANNEL;
+			}
+		}
+	}
+
+	return 0;
 }
 
 sub process_send_text {
 	my ($msg, $server_rec, $witem) = @_;
 	my $wtype = $witem->{type};
 
-	if ($msg and $witem != 0 and (defined $wtype and ($wtype eq "CHANNEL" or $wtype eq "QUERY"))) {
-		my $tag = $server_rec->{tag};
-		my $channel = $witem->{name};
-		my $valid_chan;
-		# First a quick check to see if this is a query and if we are enabled for ALL queries
-		if ($wtype eq "QUERY" and Irssi::settings_get_bool('youtube_queries')) {
-			$valid_chan = 1;
-		}
-		# Check if we want to run in this tag and channel
-		if (!defined $valid_chan) {
-			foreach my $tc (split / /, Irssi::settings_get_str('youtube_channels')) {
-				my ($t, $c) = split /:/, $tc;
-				## Now we check if $c is defined.  if it's not, we should have a nick or channel in $t
-				if (!defined $c) {
-					if (lc($t) eq lc($channel)) {
-						$valid_chan = 1;
-						last;
-					}
-				}
-				else {
-					if ((lc($t) eq lc($tag)) and (lc($c) eq lc($channel))) {
-						$valid_chan = 1;
-						last;
-					}
-				}
-			}
-		}
-		if ($valid_chan) {
-			my @words = split / /, $msg;
-			my $count = 0;
-			foreach my $s (@words) {
-				if ($s =~ m/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=/) {
-					my $title = get_youtube_title($s);
-					if (defined $title) {
-						# Check if we wanted to use a shortlink.
-						if (Irssi::settings_get_bool('youtube_shortlink')) {
-							my ($http, $secure, $www, $vid) = $s =~ m/^(http(s?):\/\/)(www\.)?youtube\.com\/watch\?v=(.*)&.*/;
-							$s = "http://youtu.be/".$vid;
-						}
-						# If we got the title, also check if we wanted to make it a HD link
-						if (Irssi::settings_get_bool('youtube_hdlink')) {
-							if (!($s =~ m/fmt=18/)) {
-								$s = $s."&fmt=18";
-							}
-						}
-						my $new_text = "$s ($title)";
-						$words[$count] = $new_text;
-					}
-				}
-				$count = $count + 1;
-			}
-			Irssi::signal_continue((join(' ', @words), $server_rec, $witem));
-		}
+	if (!defined $msg or !is_valid_source($witem)) {
+		return;
 	}
+
+	my $tag = lc $server_rec->{tag};
+	my $channel = lc $witem->{name};
+
+	# Check if we want to run in this tag and channel
+	if (!is_valid_chan($wtype, $channel, $tag)) {
+		return;
+	}
+
+	# Break the words out into an array and count the number of words.
+	my @words = split / /, $msg;
+	my $num_words = scalar @words;
+
+	# Loop over all of the words that we got, checking to see if any of
+	# them look like a youtube URL.
+	for (my $i = 0; $i < $num_words; $i++) {
+		# Grab the current word
+		my $w = $words[$i];
+
+		# Check it for signs of youtube.
+		my (undef, undef, undef, $vid) = $w =~ YOUTUBE_PATTERN;
+		if (!defined $vid) {
+			next;
+		}
+
+		# Attempt to get page title from youtube page.
+		my $title = get_youtube_title($w);
+		if (!defined $title) {
+			next;
+		}
+
+		# Check if we wanted to use a shortlink.
+		if (Irssi::settings_get_bool('youtube_shortlink')) {
+			($vid, my $discard) = split /\&/, $vid;
+			$w = YOUTUBE_SHORTLINK . $vid;
+		}
+
+		# If we got the title, also check if we wanted to make
+		# it a HD link
+		if (Irssi::settings_get_bool('youtube_hdlink')) {
+			if (!($w =~ m/fmt=18/)) {
+				$w = $w."&fmt=18";
+			}
+		}
+
+		# Overwrite the word in the array with our new
+		# youtube information.
+		my $new_text = "$w ($title)";
+		$words[$i] = $new_text;
+	}
+	Irssi::signal_continue((join(' ', @words), $server_rec, $witem));
 }
 
 sub usage {
@@ -163,16 +219,9 @@ usage();
 #####
 # Version History
 #####
-## v1.6: 26/02/2013
-# Fix issue with $wtype being undefined in process_send_text()
-# when in the status window.
-## v1.5: 17/06/2011
-# youtu.be doesn't pass along extra args in the URL. Strip them.
-## v1.4: 15/06/2011
-# Added youtube_shortlink setting. Default ON.
-## v1.3: 09/12/2009
-# Added youtube_queries setting. Default ON.
-# Allowed youtube_channels to not need a server tag.
+## v1.3
+# Many changes, same functionality.
+#####
 ## v1.2
 # Added youtube_timeout setting. Default 3 seconds.
 #####
