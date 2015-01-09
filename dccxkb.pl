@@ -16,7 +16,7 @@ $VERSION = "0.9a";
 sub exploit_close {
 	my ($server, $args, $nickname, $address, $target) = @_;
 	my $chan;
-	
+
 	if ($target =~ /^\#/) {
 		$chan = $target;
 	}
@@ -24,14 +24,21 @@ sub exploit_close {
 		return;
 	}
 
-	my $chanrec = $server->channel_find($chan);
+	# Stop the signal
 	Irssi::signal_stop();
+
+	# Don't kick ops that are doing it (was used during testing script)
 	if $server->channel_find($chan)->nick_find($nickname)->{op} {
 		return;
 	}
+
+	# Can't kickban them if we're not an op.
+	my $chanrec = $server->channel_find($chan);
 	if (!$chanrec->{chanop}) {
 		return;
 	}
+
+	# Kickban.
 	$server->command("KICKBAN $chan $nickname No Thanks");
 	Irssi::print "Banned $nickname!$address on $chan";
 }
