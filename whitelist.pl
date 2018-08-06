@@ -80,7 +80,7 @@ $VERSION = "1.3";
     changed     => "20/03/2018 17:11 GMT"
 );
 
-# location of the settings file
+# Location of the settings file
 my $settings_file = Irssi::get_irssi_dir.'/whitelist.conf';
 
 # This hash stores our various whitelists.
@@ -105,6 +105,7 @@ my %types = (
     'network' => 'networks',
 );
 
+# Turns a given hostmask into a regexp.
 sub host_to_regexp {
     my ($mask) = @_;
 
@@ -114,6 +115,7 @@ sub host_to_regexp {
     return $mask;
 }
 
+# Lowercases the host portion of a user!ident@host string
 sub lc_host {
     my ($host) = @_;
 
@@ -189,26 +191,14 @@ sub log_msg {
     $f = undef;
 }
 
-# This one gets called from IRSSI if we get a private message (PRIVMSG)
-sub whitelist_check {
-    my ($server, $msg, $nick, $address) = @_;
+# Check if a network is whitelisted
+sub network_whitelisted {
+    my ($server, $tag, $nick) = @_;
 
-    # Some /set settings.
-    my $warning           = Irssi::settings_get_bool('whitelist_notify');
-    my $casesensitive     = Irssi::settings_get_bool('whitelist_nicks_case_sensitive');
-    my $logging           = Irssi::settings_get_bool('whitelist_log_ignored_msgs');
     my $network_chan_only = Irssi::settings_get_bool('whitelist_network_channel_only');
 
-    # Variables used below.
-    my $hostmask = "$nick!$address";
-    my $tag      = $server->{chatnet};
-    $tag         = $server->{tag} unless defined $tag;
-    $tag         = lc($tag);
-
-    # Handle servers first, because they are the most significant,
-    # Nicks, Channels and Hostmasks are always local to a network
     foreach my $netentry (@{$whitelisted{'networks'}}) {
-        # copy it so we don't modify the array
+        # Copy it so we don't modify the array
         my $network = $netentry;
 
         # Change it to lower case
@@ -221,34 +211,42 @@ sub whitelist_check {
         $network =~ s/(.)/$htr{$1}/g;
 
         # Either the server tag matches
-        return if ($tag =~ /$network/);
+        return 1 if ($tag =~ /$network/);
 
         # Or its address
-        return if ($server->{address} =~ /$network/);
+        return 1 if ($server->{address} =~ /$network/);
 
         # Finally, check if the nick exists in any channels at all, if we have
         # 'whitelist_network_channel_only' enabled.
         if ($network_chan_only) {
             foreach my $channel ($server->channels()) {
-                return if defined $channel->nick_find($nick);
+                return 1 if defined $channel->nick_find($nick);
             }
         }
     }
 
-    # Nicks are the easiest to handle with the least computational effort.
-    # So do them before hosts and networks.
+    # Network isn't whitelisted
+    return 0;
+}
+
+# Check if the nick is whitelisted
+sub nick_whitelisted {
+    my ($server, $tag, $nick) = @_;
+
+    my $casesensitive = Irssi::settings_get_bool('whitelist_nicks_case_sensitive');
+
     foreach my $whitenickentry (@{$whitelisted{'nicks'}}) {
         # copy it so we don't modify the array
         my $whitenick = $whitenickentry;
 
         # Lower case everything if we are case insensitive.
         if (!$casesensitive) {
-            $nick = lc($nick);
+            $nick      = lc($nick);
             $whitenick = lc($whitenick);
         }
 
         # Simple check first: Is the nick itself whitelisted?
-        return if ($nick eq $whitenick);
+        return 1 if ($nick eq $whitenick);
 
         # Second check: We have to look if the nick was localized to a network
         # or irc server. So we have to look at <nick>@<network> too.
@@ -263,14 +261,21 @@ sub whitelist_check {
         # If the nick matches...
         if ($nick eq $whitenick) {
             # ...allow if the server tag is right...
-            return if ($tag =~ /$network/);
+            return 1 if ($tag =~ /$network/);
 
             # ...or the server address matches
-            return if ($server->{address} =~ /$network/);
+            return 1 if ($server->{address} =~ /$network/);
         }
     }
 
-    # Hostmasks are somewhat more sophisticated, because they allow wildcards
+    # Nick isn't whitelisted
+    return 0;
+}
+
+# Check if the host is whitelisted
+sub host_whitelisted {
+    my ($server, $tag, $hostmask) = @_;
+
     foreach my $whitehostentry (@{$whitelisted{'hosts'}}) {
         # copy it so we don't modify the array
         my $whitehost = $whitehostentry;
@@ -282,7 +287,7 @@ sub whitelist_check {
         $whitehost = host_to_regexp($whitehost);
 
         # Allow if the hostmask matches
-        return if ($hostmask =~ /$whitehost/);
+        return 1 if ($hostmask =~ /$whitehost/);
 
         # Check if hostmask is localized to a network
         (my $whitename, $whitehost, my $network) = split /@/, $whitehost, 3;
@@ -298,16 +303,21 @@ sub whitelist_check {
         # If the hostmask matches...
         if ($hostmask eq $whitehost) {
             # ...allow if the server tag is ok...
-            return if ($tag =~ /$network/);
+            return 1 if ($tag =~ /$network/);
 
             # ... or the server address
-            return if ($server->{address} =~ /$network/);
+            return 1 if ($server->{address} =~ /$network/);
         }
     }
 
-    # Channels require some interaction with the server, so we do them last,
-    # hoping that some ACCEPT cases are already done, thus saving computation
-    # time and effort
+    # Host isn't whitelisted
+    return 0;
+}
+
+# Check if channel is whitelisted
+sub channel_whitelisted {
+    my ($server, $tag, $nick) = @_;
+
     foreach my $channel (@{$whitelisted{'channels'}}) {
         # Check if we are on the specified channel
         my $chan = $server->channel_find($channel);
@@ -318,7 +328,7 @@ sub whitelist_check {
             my $chk = $chan->nick_find($nick);
 
             # Allow the message
-            return if defined $chk;
+            return 1 if defined $chk;
         }
 
         # Check if we are talking about a localized channel
@@ -344,26 +354,60 @@ sub whitelist_check {
         my $chk = $chan->nick_find($nick);
 
         # Allow if yes
-        return if defined $chk;
+        return 1 if defined $chk;
     }
 
+    # Channel isn't whitelisted
+    return 0;
+}
+
+# This one gets called from IRSSI if we get a private message (PRIVMSG)
+sub whitelist_check {
+    my ($server, $msg, $nick, $address) = @_;
+
+    # $tag is used by all whitelist checks.
+    my $tag = $server->{chatnet};
+    $tag    = $server->{tag} unless defined $tag;
+    $tag    = lc($tag);
+
+    # Handle servers first, because they are the most significant,
+    # Nicks, Channels and Hostmasks are always local to a network
+    return if network_whitelisted $server, $tag, $nick;
+
+    # Nicks are the easiest to handle with the least computational effort.
+    # So do them before hosts and networks.
+    return if nick_whitelisted $server, $tag, $nick;
+
+
+    # Hostmasks are somewhat more sophisticated, because they allow wildcards
+    my $hostmask = "$nick!$address";
+    return if host_whitelisted $server, $tag, $hostmask;
+
+    # Channels require some interaction with the server, so we do them last,
+    # hoping that some ACCEPT cases are already done, thus saving computation
+    # time and effort
+    return if channel_whitelisted $server, $tag, $nick;
+
     # Do we want a notice about this message attempt?
+    my $warning = Irssi::settings_get_bool('whitelist_notify');
     if ($warning) {
         Irssi::print "[$tag] $nick [$address] attempted to send private message.";
     }
 
     # Do we want to make a log entry for it?
+    my $logging = Irssi::settings_get_bool('whitelist_log_ignored_msgs');
     if ($logging) {
         my $logentry = "[$tag] $nick [$address]: $msg";
 
         log_msg $logentry;
     }
 
-    # stop if the message isn't from a whitelisted address
+    # Stop if the message isn't from a whitelisted address
     Irssi::signal_stop();
     return;
 }
 
+# Print out usage info
 sub usage {
     Irssi::print "Usage: whitelist (add|del|remove) (nick|host|chan[nel]|net[work]) <list>";
     Irssi::print "       whitelist (nick|host|chan[nel]|net[work])";
@@ -386,7 +430,7 @@ sub whitelist_cmd {
 
     # What are we doing?
     if ($cmd eq 'add') {
-        # split $rest into a list.
+        # Split $rest into a list.
         my @list = split /\s+/, $rest;
 
         # Add the entries to the whitelist and then make sure it's unique
@@ -410,6 +454,7 @@ sub whitelist_cmd {
         }
     }
     elsif ($cmd eq 'show') {
+        # Just show the current config and return
         print_config();
         return;
     }
@@ -441,13 +486,16 @@ sub whitelist_cmd {
     return;
 }
 
+# Boolean configuration
 Irssi::settings_add_bool('whitelist', 'whitelist_log_ignored_msgs' => 1);
 Irssi::settings_add_bool('whitelist', 'whitelist_network_channel_only' => 0);
 Irssi::settings_add_bool('whitelist', 'whitelist_nicks_case_sensitive' => 0);
 Irssi::settings_add_bool('whitelist', 'whitelist_notify' => 1);
 
+# Signals we need
 Irssi::signal_add_first('message private', \&whitelist_check);
 
+# The /whitelist command
 Irssi::command_bind('whitelist', \&whitelist_cmd);
 
 # Read the config
@@ -467,6 +515,7 @@ Irssi::command_bind('whitelist', \&whitelist_cmd);
 #   'whitelist_networks', and 'whitelist_nicks'. These should have been
 #   upgraded long ago and were no longer used.
 # - Move logging into its own function.
+# - Break out each type of whitelist check into its own function.
 ### 1.2: David O'Rourke
 # - Added a new toggle: whitelist_network_channel_only
 #   If enabled, this new option means that if you whitelist a network, that
