@@ -179,8 +179,9 @@ sub unique {
 # Logs a message in the whitelist log. Entries are prefixed with the
 # localtime() followed by ": ", and ending with a newline.
 sub log_msg {
-    my ($logfile, $logentry) = @_;
+    my ($logentry) = @_;
 
+    my $logfile = Irssi::get_irssi_dir.'/whitelist.log';
     my $f = IO::File->new($logfile, '>>');
     return if (!defined $f);
 
@@ -197,7 +198,6 @@ sub whitelist_check {
     my $casesensitive     = Irssi::settings_get_bool('whitelist_nicks_case_sensitive');
     my $logging           = Irssi::settings_get_bool('whitelist_log_ignored_msgs');
     my $network_chan_only = Irssi::settings_get_bool('whitelist_network_channel_only');
-    my $logfile           = Irssi::get_irssi_dir.'/whitelist.log';
 
     # Variables used below.
     my $hostmask = "$nick!$address";
@@ -356,7 +356,7 @@ sub whitelist_check {
     if ($logging) {
         my $logentry = "[$tag] $nick [$address]: $msg";
 
-        log_msg $logfile, $logentry;
+        log_msg $logentry;
     }
 
     # stop if the message isn't from a whitelisted address
