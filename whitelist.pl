@@ -157,6 +157,8 @@ sub write_config {
 	die "Couldn't open $settings_file for writing" if (!defined $f);
 
 	foreach my $listtype (keys %whitelisted) {
+        next if not length $listtype;
+
 		# Make sure we arn't writing duplicates
 		@{$whitelisted{$listtype}} = unique(@{$whitelisted{$listtype}});
 
@@ -279,7 +281,7 @@ sub whitelist_check {
 			return if ($server->{address} =~ /$network/);
 		}
 	}
-
+	
 	# Hostmasks are somewhat more sophisticated, because they allow wildcards
 	foreach my $whitehostentry (@{$whitelisted{'hosts'}}) {
 		# copy it so we don't modify the array
@@ -338,12 +340,12 @@ sub whitelist_check {
 		# Allow if yes
 		return if defined $chk;
 	}
-
+	
 	# Do we want a notice about this message attempt?
 	if ($warning) {
 		Irssi::print "[$tag] $nick [$address] attempted to send private message.";
 	}
-
+	
 	# Do we want to make a log entry for it?
 	if ($logging) {
 		my $f = IO::File->new($logfile, '>>');
@@ -376,8 +378,8 @@ sub whitelist_cmd {
 	if (!defined $listtype && defined $type) {
 		usage();
 		return;
-	}
-
+	} 
+	
 	# What are we doing?
 	if ($cmd eq 'add') {
 		# split $rest into a list.
@@ -453,7 +455,6 @@ Irssi::command_bind('whitelist', \&whitelist_cmd);
 
 # Read the config
 \&read_config();
-
 #########################
 ####### Changelog #######
 ### 1.2: David O'Rourke
