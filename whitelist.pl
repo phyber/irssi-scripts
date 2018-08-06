@@ -5,9 +5,6 @@
 # /toggle whitelist_log_ignored_msgs [default ON]
 # if this is on, ignored messages will be logged to ~/.irssi/whitelist.log
 #
-# /set whitelist_nicks phyber etc
-# nicks that are allowed to msg us (whitelist checks for a valid nick before a valid host)
-#
 # /toggle whitelist_nicks_case_sensitive [default OFF]
 # do we care which case nicknames are in?
 #
@@ -64,10 +61,6 @@
 # should be easy to remember and self explaining. If someone wants shorter
 # commands, feel free to use 'alias'.
 ##
-# /whitelist upgrade
-# convert the old style settings to the new hash/config file based settings.
-# you MUST run this if you haven't generated a config file yet.
-#
 # /whitelist show
 # shows you all of the whitelisted entries.
 
@@ -89,6 +82,7 @@ $VERSION = "1.3";
 
 # location of the settings file
 my $settings_file = Irssi::get_irssi_dir.'/whitelist.conf';
+
 # This hash stores our various whitelists.
 my %whitelisted;
 
@@ -113,14 +107,18 @@ my %types = (
 
 sub host_to_regexp {
     my ($mask) = @_;
+
     $mask = lc_host($mask);
     $mask =~ s/(.)/$htr{$1}/g;
+
     return $mask;
 }
 
 sub lc_host {
     my ($host) = @_;
+
     $host =~ s/(.+)\@(.+)/sprintf("%s@%s", $1, lc($2));/eg;
+
     return $host;
 }
 
@@ -128,6 +126,7 @@ sub lc_host {
 sub print_config {
     foreach my $listtype (keys %whitelisted) {
         my $str = join ' ', @{$whitelisted{$listtype}};
+
         Irssi::print "Whitelisted $listtype: $str";
     }
 }
@@ -137,7 +136,7 @@ sub read_config {
     # nicks, hosts, channels, networks
     my $f = IO::File->new($settings_file, 'r');
     if (!defined $f) {
-        Irssi::print "Couldn't open $settings_file for reading. Do you need to generate a config file with '/whitelist upgrade' ?";
+        # No config file, it's probably a first run.
         return;
     }
 
@@ -157,6 +156,7 @@ sub write_config {
     die "Couldn't open $settings_file for writing" if (!defined $f);
 
     foreach my $listtype (keys %whitelisted) {
+        # Avoid writing blank lines into the config
         next if not length $listtype;
 
         # Make sure we arn't writing duplicates
@@ -170,54 +170,28 @@ sub write_config {
     $f = undef;
 }
 
-# convert old settings to new settings (/whitelist upgrade)
-sub old2new {
-    my $nicks    = Irssi::settings_get_str('whitelist_nicks');
-    my $hosts    = Irssi::settings_get_str('whitelist_hosts');
-    my $channels = Irssi::settings_get_str('whitelist_channels');
-    my $networks = Irssi::settings_get_str('whitelist_networks');
-
-    # Convert nick whitelist
-    foreach my $nick (split /\s+/, $nicks) {
-        next if not length $nick;
-        push @{$whitelisted{'nicks'}}, $nick;
-    }
-
-    # Convert host whitelist
-    foreach my $host (split /\s+/, $hosts) {
-        next if not length $host;
-        push @{$whitelisted{'hosts'}}, $host;
-    }
-
-    # Convert channel whitelist
-    foreach my $channel (split /\s+/, $channels) {
-        next if not length $channel;
-        push @{$whitelisted{'channels'}}, $channel;
-    }
-
-    # Convert network whitelist
-    foreach my $network (split /\s+/, $networks) {
-        next if not length $network;
-        push @{$whitelisted{'networks'}}, $network;
-    }
-
-    # now make sure entries in those whitelists are unique.
-    foreach my $listtype (keys %whitelisted) {
-        @{$whitelisted{$listtype}} = unique(@{$whitelisted{$listtype}});
-    }
-
-    write_config();
-}
-
-# return a unique array.
+# Return a unique array.
 sub unique {
     my %seen;
     return grep { !$seen{$_}++ } @_;
 }
 
+# Logs a message in the whitelist log. Entries are prefixed with the
+# localtime() followed by ": ", and ending with a newline.
+sub log_msg {
+    my ($logfile, $logentry) = @_;
+
+    my $f = IO::File->new($logfile, '>>');
+    return if (!defined $f);
+
+    print {$f} localtime().": $logentry\n";
+    $f = undef;
+}
+
 # This one gets called from IRSSI if we get a private message (PRIVMSG)
 sub whitelist_check {
     my ($server, $msg, $nick, $address) = @_;
+
     # Some /set settings.
     my $warning           = Irssi::settings_get_bool('whitelist_notify');
     my $casesensitive     = Irssi::settings_get_bool('whitelist_nicks_case_sensitive');
@@ -267,10 +241,12 @@ sub whitelist_check {
         # copy it so we don't modify the array
         my $whitenick = $whitenickentry;
 
+        # Lower case everything if we are case insensitive.
         if (!$casesensitive) {
             $nick = lc($nick);
             $whitenick = lc($whitenick);
         }
+
         # Simple check first: Is the nick itself whitelisted?
         return if ($nick eq $whitenick);
 
@@ -378,11 +354,9 @@ sub whitelist_check {
 
     # Do we want to make a log entry for it?
     if ($logging) {
-        my $f = IO::File->new($logfile, '>>');
-        return if (!defined $f);
+        my $logentry = "[$tag] $nick [$address]: $msg";
 
-        print {$f} localtime().": [$tag] $nick [$address]: $msg\n";
-        $f = undef;
+        log_msg $logfile, $logentry;
     }
 
     # stop if the message isn't from a whitelisted address
@@ -393,7 +367,6 @@ sub whitelist_check {
 sub usage {
     Irssi::print "Usage: whitelist (add|del|remove) (nick|host|chan[nel]|net[work]) <list>";
     Irssi::print "       whitelist (nick|host|chan[nel]|net[work])";
-    Irssi::print "       whitelist upgrade";
     Irssi::print "       whitelist show";
 }
 
@@ -436,13 +409,6 @@ sub whitelist_cmd {
             @{$whitelisted{$listtype}} = grep {!/^$removal$/} @{$whitelisted{$listtype}};
         }
     }
-    elsif ($cmd eq 'upgrade') {
-        Irssi::print "Converting old style /settings to new config file based settings";
-        old2new();
-        read_config();
-        print_config();
-        return;
-    }
     elsif ($cmd eq 'show') {
         print_config();
         return;
@@ -475,14 +441,10 @@ sub whitelist_cmd {
     return;
 }
 
-Irssi::settings_add_bool('whitelist', 'whitelist_notify' => 1);
 Irssi::settings_add_bool('whitelist', 'whitelist_log_ignored_msgs' => 1);
-Irssi::settings_add_bool('whitelist', 'whitelist_nicks_case_sensitive' => 0);
 Irssi::settings_add_bool('whitelist', 'whitelist_network_channel_only' => 0);
-
-foreach (keys(%types)) {
-    Irssi::settings_add_str('whitelist', 'whitelist_'.$types{$_}, '');
-}
+Irssi::settings_add_bool('whitelist', 'whitelist_nicks_case_sensitive' => 0);
+Irssi::settings_add_bool('whitelist', 'whitelist_notify' => 1);
 
 Irssi::signal_add_first('message private', \&whitelist_check);
 
@@ -490,6 +452,7 @@ Irssi::command_bind('whitelist', \&whitelist_cmd);
 
 # Read the config
 \&read_config();
+
 #########################
 ####### Changelog #######
 ### 1.3: David O'Rourke
@@ -498,6 +461,12 @@ Irssi::command_bind('whitelist', \&whitelist_cmd);
 # - Fix up some indentation and space code out a bit better for more
 #   readability.
 # - Attempt to make changelog slightly more readable
+# - Remove the '/whitelist old2new' and '/whitelist upgrade' functions. These
+#   are probably over a decade old now, and shouldn't be needed any longer.
+# - Remove '/set' settings, 'whitelist_channels', 'whitelist_hosts',
+#   'whitelist_networks', and 'whitelist_nicks'. These should have been
+#   upgraded long ago and were no longer used.
+# - Move logging into its own function.
 ### 1.2: David O'Rourke
 # - Added a new toggle: whitelist_network_channel_only
 #   If enabled, this new option means that if you whitelist a network, that
