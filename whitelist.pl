@@ -1,12 +1,19 @@
 ##
 # /toggle whitelist_notify [default ON]
-# Print a message in the status window if someone not on the whitelist messages us
+# Print a message in the status window if someone not on the whitelist messages
+# us.
+#
+# /set whitelist_log_file [default ~/.irssi/whitelist.log]
+# Set the file that messages will be logged to if whitelist_log_ignored_msgs is
+# enabled. ~/.irssi is found via Irssi::get_irssi_dir and could be different
+# if irssi is started with a different --home argument.
 #
 # /toggle whitelist_log_ignored_msgs [default ON]
-# if this is on, ignored messages will be logged to ~/.irssi/whitelist.log
+# If this is on, ignored messages will be logged to whitelist_log_file as
+# detailed above.
 #
 # /toggle whitelist_nicks_case_sensitive [default OFF]
-# do we care which case nicknames are in?
+# Do we care which case nicknames are in?
 #
 # Thanks to Geert for help/suggestions on this script
 #
@@ -183,7 +190,7 @@ sub unique {
 sub log_msg {
     my ($logentry) = @_;
 
-    my $logfile = Irssi::get_irssi_dir.'/whitelist.log';
+    my $logfile = Irssi::settings_get_str('whitelist_log_file');
     my $f = IO::File->new($logfile, '>>');
     return if (!defined $f);
 
@@ -486,11 +493,12 @@ sub whitelist_cmd {
     return;
 }
 
-# Boolean configuration
+# Irssi settings
 Irssi::settings_add_bool('whitelist', 'whitelist_log_ignored_msgs' => 1);
 Irssi::settings_add_bool('whitelist', 'whitelist_network_channel_only' => 0);
 Irssi::settings_add_bool('whitelist', 'whitelist_nicks_case_sensitive' => 0);
 Irssi::settings_add_bool('whitelist', 'whitelist_notify' => 1);
+Irssi::settings_add_str('whitelist', 'whitelist_log_file', Irssi::get_irssi_dir.'/whitelist.log');
 
 # Signals we need
 Irssi::signal_add_first('message private', \&whitelist_check);
@@ -516,6 +524,8 @@ Irssi::command_bind('whitelist', \&whitelist_cmd);
 #   upgraded long ago and were no longer used.
 # - Move logging into its own function.
 # - Break out each type of whitelist check into its own function.
+# - Make logfile location configurable via new 'whitelist_log_file' setting.
+#   Defaults to 'whitelist.log' under the Irssi directory.
 ### 1.2: David O'Rourke
 # - Added a new toggle: whitelist_network_channel_only
 #   If enabled, this new option means that if you whitelist a network, that
